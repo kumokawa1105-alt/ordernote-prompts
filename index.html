@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>オーダーノート返信プロンプト</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --text: #1f1f1f;
+    --muted: #6b6b6b;
+    --border: #e3e0da;
+    --accent: #b8860b;
+    --accent-soft: #fbf3df;
+    --code-bg: #1e1e24;
+    --code-text: #e8e6e3;
+    --ok: #2e7d4f;
+    --warn-bg: #fff4e5;
+    --warn-text: #8a4b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416;
+      --surface: #1d1d21;
+      --text: #ececec;
+      --muted: #9a9a9a;
+      --border: #2e2e34;
+      --accent: #e0b04a;
+      --accent-soft: #2a2416;
+      --code-bg: #0f0f12;
+      --code-text: #e8e6e3;
+      --ok: #5fc38a;
+      --warn-bg: #2b2112;
+      --warn-text: #f0b866;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416;
+    --surface: #1d1d21;
+    --text: #ececec;
+    --muted: #9a9a9a;
+    --border: #2e2e34;
+    --accent: #e0b04a;
+    --accent-soft: #2a2416;
+    --code-bg: #0f0f12;
+    --code-text: #e8e6e3;
+    --ok: #5fc38a;
+    --warn-bg: #2b2112;
+    --warn-text: #f0b866;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding-block: 32px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  nav.tabs {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+    display: flex; gap: 8px;
+    margin: 24px -16px 24px; padding: 12px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: .9rem;
+    cursor: pointer;
+  }
+  nav.tabs button[aria-selected="true"] {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+  .panel-head { margin-bottom: 16px; }
+  .panel-head h2 { font-size: 1.2rem; margin: 0 0 4px; }
+  .panel-head p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  .seg {
+    display: flex; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 4px;
+  }
+  .seg button {
+    flex: 1; border: none; background: transparent; color: var(--muted);
+    padding: 10px 8px; border-radius: 7px; cursor: pointer;
+    font-size: .95rem; font-weight: 600;
+  }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); }
+  .mode[hidden] { display: none; }
+
+  .group { margin-bottom: 28px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 0 0 12px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--border);
+  }
+  .group-head h4 { margin: 0; font-size: 1rem; }
+  .group-head span { color: var(--muted); font-size: .82rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 14px 16px 12px;
+  }
+  .card-head h3 { font-size: 1rem; margin: 0; }
+  .card-head .note { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
+  .step {
+    display: inline-block; margin-bottom: 4px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .step + .step { margin-left: 6px; }
+  .step.sample { color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
+  .doc-link {
+    display: flex; flex-direction: column; gap: 2px; margin-bottom: 20px;
+    padding: 12px 16px; border-radius: 12px; text-decoration: none;
+    background: var(--surface); border: 1px solid var(--border); color: var(--accent); font-weight: 700;
+  }
+  .doc-link:hover { border-color: var(--accent); }
+  .doc-link span { font-size: .75rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+  .flow { display: flex; flex-direction: column; align-items: stretch; }
+  .flow-box {
+    display: flex; align-items: center; gap: 14px; text-align: left;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; cursor: pointer; color: var(--text); font: inherit;
+  }
+  .flow-box:hover { border-color: var(--accent); }
+  .flow-num {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--accent); color: #fff; font-weight: 700;
+  }
+  .flow-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .flow-body strong { font-size: 1rem; }
+  .flow-desc { font-size: .88rem; color: var(--text); }
+  .flow-tag {
+    margin-left: 10px; padding: 2px 10px; border-radius: 999px; vertical-align: 2px;
+    background: #e8508a; color: #fff; font-size: .75rem; font-weight: 700;
+  }
+  .flow-note {
+    margin-top: 4px; padding: 6px 10px; border-radius: 6px;
+    background: var(--accent-soft); font-size: .85rem; color: var(--text);
+  }
+  .flow-time { font-size: .82rem; font-weight: 700; color: var(--accent); }
+  .flow-list { font-size: .78rem; color: var(--muted); }
+  .flow-go { flex-shrink: 0; font-size: .8rem; color: var(--accent); font-weight: 600; }
+  .flow-arrow { text-align: center; color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 6px 0; }
+  .flow-milestone {
+    align-self: center; padding: 6px 18px; border-radius: 999px;
+    background: var(--ok); color: #fff; font-size: .85rem; font-weight: 700;
+  }
+  .flow-milestone-note { text-align: center; margin-top: 6px; font-size: .85rem; font-weight: 700; color: var(--ok); }
+  .flow-loop { margin-top: 10px; text-align: center; color: var(--muted); font-size: .85rem; }
+  .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .btns [hidden] { display: none; }
+  .edit-btn, .cancel-btn, .reset-btn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-size: .85rem; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .reset-btn { color: var(--muted); }
+  .save-btn {
+    border: none; background: var(--accent); color: #fff; font-weight: 600;
+    font-size: .85rem; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  }
+  .step.edited { color: #fff; background: #3b6fd8; }
+  .step[hidden] { display: none; }
+  .step.point { color: #fff; background: #e8508a; }
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 8px 0 24px;
+    color: var(--ok); font-weight: 700; font-size: .9rem;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; border-top: 2px dashed var(--ok); }
+  .divider span { padding: 4px 14px; border: 2px solid var(--ok); border-radius: 999px; }
+  .editor { padding: 0 16px 14px; }
+  .editor[hidden], pre[hidden] { display: none; }
+  .editor textarea {
+    width: 100%; min-height: 120px; resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; line-height: 1.7;
+    color: var(--text); background: var(--bg);
+    border: 2px solid var(--accent); border-radius: 8px; padding: 12px;
+  }
+  .editor-help { margin: 6px 0 10px; font-size: .78rem; color: var(--muted); }
+  .editor-btns { display: flex; gap: 8px; align-items: center; }
+  .copy-btn {
+    flex-shrink: 0;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    min-width: 92px;
+  }
+  .copy-btn.done { background: var(--ok); }
+  .caution {
+    margin: 12px 16px; padding: 8px 12px;
+    background: var(--warn-bg); color: var(--warn-text);
+    border-radius: 8px; font-size: .82rem;
+  }
+  pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .82rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .ph { color: #f0c36a; }
+  .var { color: #1e1e24; background: #f0c36a; border-radius: 3px; padding: 0 3px; font-weight: 700; }
+
+  .settings {
+    margin-top: 20px; padding: 14px 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end;
+  }
+  .settings .ttl { width: 100%; font-size: .8rem; font-weight: 700; color: var(--muted); }
+  .settings label { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--muted); }
+  .settings input {
+    font: inherit; font-size: 1rem; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .settings input[type="number"] { width: 90px; }
+  .settings .preview { font-size: .9rem; color: var(--text); font-weight: 600; }
+  .empty {
+    padding: 20px; text-align: center; color: var(--muted); font-size: .9rem;
+    border: 1px dashed var(--border); border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>オーダーノート チャレンジ 返信プロンプト集</h1>
+    <p>ボタン1つでコピー → Claude に貼り付けて使う。上から順番に送る。</p>
+    <div class="settings">
+      <div class="ttl">共通設定（プロンプト内の黄色い部分に反映）</div>
+      <label>開催回
+        <span><input type="number" id="in-kai" min="1"> 回</span>
+      </label>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <main id="panels"></main>
+</div>
+
+<script>
+/* ================================================================
+   プロンプトはここに追加・編集する
+   sections（タブ） > modes（切替ボタン） > groups（見出し） > cards（コピー単位）
+   ================================================================ */
+const sections = [
+  {
+    id: "prework",
+    label: "事前ワーク",
+    noDate: true,
+    desc: "チャレンジ開始前に投稿される願望（事前ワーク）へのフィードバック",
+    modes: [
+      {
+        label: "全体像",
+        overview: [
+          { mode: "初期設定", note: "ガチャ要素ありで3回くらい試すのあり、目視でいいやつ把握する", time: "1時間" },
+          { mode: "微調整", tag: "ワクワクするか", note: "全体を整えて、Googleドキュメントに貼り付けて、2通ずつ確認", time: "2時間〜3時間" },
+          { mode: "矛盾チェック" },
+          { milestone: "LINEに配信", note: "1回目は、合計3時間ほど" },
+          { mode: "投稿", tag: "ワクワクするか", note: "回数が進むにつれて、学習がブラッシュアップさせ時間が短くなる", time: "1〜3時間" },
+          { loop: "→ 微調整・矛盾チェックに戻る（配信のたびに繰り返す）" }
+        ]
+      },
+      {
+        label: "初期設定",
+        desc: "チャットを立ち上げて、1回目の願望フィードバックを作る",
+        groups: [
+          {
+            cards: [
+              {
+                step: "STEP 1",
+                title: "マニュアルを読み込ませる",
+                body: `/Users/3years/.claude/plans/glowing-brewing-marble.mdを読み込んで。`
+              },
+              {
+                step: "STEP 2",
+                title: "過去回の型を把握させる",
+                body: `これから{{回}}回目の事前ワーク、投稿してくれた願望へフィードバックするメッセージを作りたい。
+
+その上で、まずはデスクトップにあるオープンチャット履歴というフォルダの中にある[LINE]第6回オーダーノート3日間引き寄せチャレ...のトーク.txtと[LINE]第11回オーダーノート3日間引き寄せチャレ...のトーク.txtを読み込んで、【事前ワークのご案内】以降の望月の願望フィードバックの投稿を読み込んで。この型をもとに願望フィードバックのメッセージを作りたい。
+
+前提として、本番までのワークとして願望を投稿してもらっている。その投稿に対するメッセージを作りたい。なので、まずは[LINE]第6回オーダーノート3日間引き寄せチャレ...のトーク.txtと[LINE]第11回オーダーノート3日間引き寄せチャレ...のトーク.txtを読み込んで型を把握して。
+
+まだメッセージは作らなくていい。把握だけして。`
+              },
+              {
+                step: "STEP 3",
+                title: "今回のトーク履歴からメッセージを作らせる",
+                body: `デスクトップにある[LINE]第{{回}}回オーダーノート3日間引き寄せチャレ...のトーク.txtを新しく読み込んで、まだ個別フィードバックしていない人のメッセージを個人メンションで考えて。あと、フィードバックする際だけど、テンションを上げることを意識して。抜け漏れがないように気をつけて。
+
+あと、[[明日の昼、夜の2回]]に分割して出すので、それも考慮してメッセージを作成して。1回につき20人までしかメンションできないので、[[昼と夜と]]それぞれ複数通になってもいい。
+
+最後に今回メンションした人のリストを出して。`
+              },
+              {
+                step: "STEP 4",
+                title: "コードブロックで出させる",
+                caution: "md や txt などのファイルで出力された場合は、そのファイルは削除させて、このチャットにコードブロックで出し直させる",
+                body: `それぞれコードブロックで、このチャットに出して。`
+              }
+            ]
+          }
+        ]
+      },
+      {
+        label: "微調整",
+        desc: "出てきたメッセージを見て、直してほしいところを伝える",
+        groups: [
+          {
+            heading: "微調整",
+            sub: "出てきたメッセージを見て、必要なときだけ使う",
+            cards: [
+              {
+                step: "まとめて修正",
+                sample: true,
+                title: "引用→一言 を 一言→引用 に",
+                body: `いいね！何ヶ所か、引用→一言になっているので、一言→引用にできる？意味わかる？`
+              },
+              {
+                step: "まとめて修正",
+                sample: true,
+                title: "「そして願望。」始まりも 一言→引用 に",
+                body: `いいね！何ヶ所か確認。そして願望。で始めているところがあるので、これも同じように一言→引用という感じにして。意味わかる？`
+              },
+              {
+                step: "個別で修正",
+                sample: true,
+                point: true,
+                title: "個別の確認・修正（2通ずつ推奨）",
+                body: `何ヶ所か確認。
+
+＃1通目
+
+・mic の以下だけど、６、１１でも全く同じ表現を使っていた？強くない？使っていればOK
+
+金額が入っていません。
+
+・以下だけど、教義としては正しいと思うんだけど、「セラピストになりたいです」→「セラピストです」。こんな書き方を6回、11回ではしていなかったと思う。
+
+あと、『言い切った瞬間に完成形です。』をもう叶っている形で的なのにできる？6回、11回でなかった？
+
+直すのは語尾1か所だけ。「セラピストになりたいです」→「セラピストです」。言い切った瞬間に完成形です。海外の五つ星ホテルの部屋に入った瞬間の自分を、今そのまま感じてみてください。その感覚のまま本番へ。ぶっちぎりで引き寄せましょう！！
+
+・ふくだけど、『まだ見えていません。』6回、11回でも全く同じ表現使っていた？具体的なのか、書いてみてくださいとか、そんな表現なかった？この書き方があったのであればOK
+
+・それとふく『もっと欲出していいんですよ！！』この次に欲望はエネルギーですから的なの入れられる。6回目と11回目で
+
+・『ゆき14さんは「大好きな彼と、新築の庭付き平屋で笑って暮らしている私」に全エネルギーを集中させてください。』の次にそうすることでか、理由を一文入れたい。6回目と11回目を参考に
+
+・「月1で彼と旅行している」と現在形にしてみてください。の後に理由を入れたかかも。これも6回目と11回目を参考に。文脈が合うように
+
+・『「借金の返済で困る事が一切なくなり」が真ん中に来ています』これだけど、本人、どう真ん中に来ていた？
+
+・ヨッさん 、『言い切っちゃいましょう！！』だけどもう叶っている形でみたいな感じにしたい。
+
+・『ここは「私に最も適した技術を身につけ」でOKです。』だけど、手段が浮かばなければ的なの入れたい。6回、11回を参考に
+
+・『「私に最も適した方法で月収300万を受け取り、娘と推し活で全国を飛び回っている。借金は気づいたら全部終わっていた」。』だけど唐突。本人が私に最も適した方法でと言っていたのならOKだが。後順番を逆じゃなくて、主軸的なのにして。6回目と11回目を参考に。
+
+・みやちん だけど、引用後の一文がなく、いきなりフィードバックなので、追加したい。わかる？
+
+・以下だけど、プラスマイナスゼロで終わる的なの入れたい。あとはこれは入れられたらだけど、豊かさ側かその先を的な。6回目、11回目を参考に。
+1つだけ。「旦那とも別れ借金も返済し」「今の環境から脱出したい」。ここが全部、今から離れる言葉になっています。逃げたいエネルギーのままだと、宇宙は「この人はゼロに戻りたいんだな」と受け取ってしまう。
+
+「私に最も適した方法で月収100万円を受け取り、子どもたちと旅をして、新しい彼と笑って暮らしている」と、脱出したその先の景色を、現在形で書いてみてください。そっちに全エネルギーを向けたら、今の環境は勝手に変わっていきますよ！！
+・以下はどういうこと？入り口が書かれていないということ？願望に入り口なかった？その場合は、6回目と11回目を参考に
+
+1つだけ。お名前に「腸×占」と入っているのに、願望に腸も占いも出てきていません！腸と占いで、どうやって月100万を受け取っていますか？そこが1行入ったら完成です！！
+
+・加代だけど、『地名を1つ入れてみてください！！』で終わっているので、そうすると的なのを入れたい。6回目、11回目を参考に。
+
+・ももだけど、『金額が入ると、宇宙が具体的に受け取れるようになります。』こんな表現を6回目、11回目使っていた？使っていなければ、参考に調整したい。
+
+
+＃2通目
+
+・以下だけど、本人が私に最も適した方法でと書いていた？それならOK。そうじゃないなら唐突。
+
+「私に最も適した方法で月◯◯万円を受け取り、学びたいことを学び、行きたい場所へ行っている」。豊かさそのものを書いてみてください。そして一番学びたいもの、一番行きたい場所を1つずつ。贅沢、していいんですよ！もっと欲出していいんです！！
+
+・以下も同じく唐突。本人が書いていればいいのだが。
+
+「私に最も適した方法で月◯◯万円を受け取り、◯◯（地名）のセカンドハウスで過ごしている。借金は気づいたら完済していた」。
+
+・ririy の以下だけど、「月に100万以上稼いでいる」とあるが、入り口は書かれていた？書かれていたのであればOK
+
+もう完成しています。あとは、仲間と笑いながら軽やかに仕事をしている自分を、今そのまま感じてみてください。その周波数のまま本番へ。ぶっちぎりで引き寄せましょう！！
+
+・以下だけど、理由を入れたいかも。6回目、11回目を参考に
+
+「◯◯で月100万円を受け取り、大好きな人と旅をしながら笑って暮らしている」と、副業の名前を入れて現在形で書いてみてください。
+
+・以下だけど、豊か側とか入れたいかも。文脈に合うように。6回目、11回目を参考に
+
+「オルゴナイトとお守りで月収50万以上を受け取り、娘とプロレスを観に行っている」から書き始めてみてください。
+
+・以下だけど、そうすると的なのを入れたい。6回目、11回目を参考に
+
+車種名まで書いちゃいましょう！！
+
+・Himi だけど、引用の後の一文がなく、いきなりフィードバックに入っている。意味わかる？あと『見本の型を』とあるが、これはどういう意味？
+
+・みぃーだけど、『その方が周波数としてまっすぐ届きますよ！！』6回目、11回目でまっすぐ届きますという書き方していた？してたならOK、していないなら参考に調整して。理由になる部分だよね。健康側の
+
+・fu_ku の『宇宙が具体的に受け取れるようになりますよ！！』も同じ。6回目、11回目でこういう書き方していた？してたならOK、していないなら参考に調整して。
+
+・みるきー の以下だけど、理由も入れたい。6回目、11回目を参考に
+
+「ご縁をつなぐ仕事で、日本中を元気にしている」ともう叶っている形で書いてみてください。
+
+・みるきー の以下だけど、そうすると的なのを入れたい。6回目、11回目を参考に。
+
+地名を1つ入れてみてください！！
+
+・以下は本人が書いていた？違うなら唐突かも
+
+主軸は「どうぶつに関わる仕事で月100万以上を受け取り、淡路島と二拠点で暮らしている私」。
+
+・『完成です！！』以外の言い回しで締めたい。6回目、11回目を参考に`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "ビフォーアフターで出させる",
+                body: `ビフォーアフターで分けて、コードブロックで出して`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "整えた版の反映確認",
+                body: `2通。整えてみた。どう？反映できている？`
+              },
+              { divider: "ここまでいけたら基本OK" },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "修正版を見せて確認",
+                body: `どう？
+
+@mic
+
+二世帯住宅の1階が、昼は喫茶、週末の夜はライブハウス！！この発想、最高です！！
+
+「今住んでいるところの隣(西側)の駅の近くに」
+「家族4人が一緒に住める二世帯住宅」
+「昼間は喫茶で週末の夜はライブハウスになるホール」
+「温かみがあって独創的で一風変わった人たちに囲まれて」
+
+方角まで入っているのが強いです！そして「一風変わった人たちに囲まれて」。この一文に、micさんらしさが全部出ていますね。
+
+1つだけ。金額を入れてみてください。小説や文章を書いて、喫茶とライブハウスを回して、月にいくら受け取っていますか？金額が入ると、宇宙が具体的に受け取れるようになります。遠慮はいりません、大きく書いていいんです！！欲望はエネルギーですから。`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "引用後の一文がない人を指摘",
+                body: `@Ri 🦋 @サム @mii39
+
+だけど、引用の後の一文がない。`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "完成形でOKか確認",
+                body: `以下だけど、完成形としているが、完成形でOK？具体性とか抜けているところない？できていればOK
+@くみこ
+
+みなさん、くみこさんの願望、スクショしてください！！
+
+「鍼を刺さず、必要以上に手を加えず、身体が自ら整う力を引き出していくもの」
+「対面でお迎えするのは、本当にご縁のある方を中心に月5日程度」
+「信頼と紹介の循環が300人規模に広がっています」
+「静かだけれど確かな存在感。自由だけれど豊かなつながり。」
+
+施術の哲学、働く日数、広がり方、人間関係、暮らし方。全部入っています。長年の経験と研究がひとつの体系になっている。これ、くみこさんにしか書けないオーダーです！！
+
+しかも追加で「3000万円の売り上げを作れるビジネスパートナーが現れる」。ここで数字を出してきた。痺れました！！
+
+直すところがありません。あとは、森を歩いたあとにゆっくり研究している、その静かで満ち足りた自分を今そのまま感じてみてください。その周波数を覚えておいて、このまま本番へ。ぶっちぎりで引き寄せましょう！！`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "完成形の確認＋指摘ありの締め調整",
+                body: `以下は完成形でOK？OKならOK！
+
+@のぶりん
+
+まず、これです！！
+
+＞先程娘から連絡あり、グアムの旅行中に彼からプロポーズされたとのことです。
+
+きたー！！おめでとうございます！！！ご家族の幸せまで引き寄せていますね！！
+
+願望も、もう叶った人の書き方です！！
+
+「室内から雄大な阿蘇山がみえる大きな窓のある別荘」
+「ビジネス、ファーストクラスの飛行機に乗って行きたい国にゆったりいっています」
+「世界の人々が平和で愛を与え与えられる優しい世の中になっています」
+
+阿蘇山、大きな窓、三拠点、ファーストクラス。全部現在形！予祝までしている！完璧です！！
+
+直すところがありません。あとは、阿蘇の別荘の大きな窓の前に立っている自分を、今そのまま感じてみてください。娘さんの報告を聞いた時のその嬉しさのまま、本番へ。ぶっちぎりで引き寄せましょう！！
+
+・以下も同じく
+
+@晶子
+
+みなさん、晶子さんの願望もスクショしてください！！
+
+「アスペルガーの特性を活かしたAI事業」
+「JRの最寄り駅まで徒歩5分」
+「お布団や洗濯物が干せる、広々としたサンルーム」
+「共創仲間が13人いて」
+
+特性を強みに変えた事業、月収と年収、駅からの距離、そしてサンルームの網戸！鳥の糞の心配まで想定している。ここまでの解像度、なかなかいません！！仲間が「13人」と言い切っているのも最高です。叶うスピードが段違いです！！
+
+直すところがありません。あとは、太陽に干したふかふかのお布団に入る瞬間の自分を、今そのまま感じてみてください。その「満たされた」感覚を覚えておいて、このまま本番へ。ぶっちぎりで引き寄せましょう！！
+
+・以下だけど、指摘をしているので、締めを変えたい。6回、11回を参考に調整
+
+@ひろぴんちゃん👼🌈
+
+もう、この言葉で優勝です！！最高です！！
+
+「歩くパワースポットおばあちゃんになりました♡」
+「年収1000万円以上を稼ぎ続ける」
+「子供からお年寄りまでのコミュニティを創り」
+「感性の学校を創設し」
+
+世界中の人脈、学校、コミュニティ、そして地球の未来まで。愛のスケールが桁違いです！！
+
+1つだけ。「過ごすことができました」「なりました」「できました」。過去形だと、脳が「もう終わったこと」として処理してしまうんです。「歩くパワースポットおばあちゃんとして、年収1000万円以上を受け取り続けている」と現在形にしてみてください。あとは、世界中を飛び回っている歩くパワースポットおばあちゃんの自分を、今そのまま感じてみてください。その周波数のまま本番へ。ぶっちぎりで引き寄せましょう！！`
+              },
+              {
+                step: "確認作業",
+                sample: true,
+                title: "特定の表現を変えたい",
+                body: `以下の『その方が周波数としてまっすぐ届きますよ！！』を変えたい
+
+@みぃー
+
+最初の一文、美しいです！！
+
+「感謝し、感謝される。そんな循環の中で生まれる富を得ます。」
+「鑑定業務を中心とした仕事と不労所得で月に150万円の収入」
+「東京都内にも共住地点を持ちます」
+「家の隣に、鑑定部屋と人が集まるサロンを開設します」
+「月に一度は夫婦で外食を楽しみます」
+
+仕事も、拠点も、夫婦の時間も、全部入っています！
+
+1つだけ。「今患っている箇所も奇跡的な治癒力で」。ここは症状を書かずに、健康な姿だけを書くのがコツです。「心身ともに健康で、毎日軽やかに動いている」と。病気を主役にせず、元気な自分にフォーカス。その方が周波数としてまっすぐ届きますよ！！`
+              }
+            ]
+          }
+        ]
+      },
+      {
+        label: "投稿",
+        desc: "2回目以降。新しく投稿された願望へのフィードバックを作る",
+        groups: [
+          {
+            cards: [
+              {
+                step: "STEP 1",
+                title: "今回のトーク履歴からメッセージを作らせる",
+                body: `デスクトップにある[LINE]第{{回}}回オーダーノート3日間引き寄せチャレ...のトーク.txtを新しく読み込んで、まだ個別フィードバックしていない人のメッセージを個人メンションで考えて。あと、フィードバックする際だけど、テンションを上げることを意識して。抜け漏れがないように気をつけて。
+
+あと、[[明日の昼、夜の2回]]に分割して出すので、それも考慮してメッセージを作成して。1回につき20人までしかメンションできないので、[[昼と夜と]]それぞれ複数通になってもいい。
+
+最後に今回メンションした人のリストを出して。`
+              },
+              {
+                step: "STEP 2",
+                title: "未対応者と対象期間の確認",
+                body: `現状、まだ願望フィードバックできていない人いる？あと何月何日、何時何分まで対象？`
+              }
+            ]
+          }
+        ]
+      },
+      {
+        label: "矛盾チェック",
+        desc: "仕上がったメッセージに、教えとの矛盾や虚偽・捏造がないか確認する",
+        groups: [
+          {
+            cards: [
+              {
+                step: "STEP 1",
+                title: "トーク履歴を読み込ませてチェック依頼",
+                body: `デスクトップにある[LINE] 第{{回}}回オーダーノート3日間引き寄せチャ...のトーク.txtを読み込んで。
+
+以下の投稿だけど、間違いがないか、チェックして。
+
+
+`
+              },
+              {
+                step: "STEP 2",
+                title: "教え・概念との矛盾チェック",
+                body: `今回の投稿、望月の教えやオーダーノートの概念や教義と矛盾や間違いない？`
+              },
+              {
+                step: "STEP 3",
+                title: "全員分の矛盾チェック",
+                body: `全員OK？矛盾チェック`
+              },
+              {
+                step: "STEP 4",
+                title: "虚偽・捏造チェック",
+                body: `全員OK？虚偽・捏造などない？`
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: "day1",
+    label: "Day1 ワーク",
+    desc: "1日目ライブ後のワーク投稿への返信",
+    modes: [
+      { label: "初期設定", groups: [{ heading: "基本", sub: "（準備中）", cards: [] }] }
+    ]
+  },
+  {
+    id: "day2",
+    label: "Day2 ワーク",
+    desc: "2日目ライブ後のワーク投稿への返信",
+    modes: [
+      { label: "初期設定", groups: [{ heading: "基本", sub: "（準備中）", cards: [] }] }
+    ]
+  },
+  {
+    id: "paid",
+    label: "有料",
+    noDate: true,
+    desc: "オーダーノート現実創造プログラム（有料）のトークへの返信",
+    modes: [
+      {
+        label: "有料投稿",
+        link: "https://docs.google.com/document/d/1r2PnI0J0xd2mgua0Qqcwcd0VJocJ7eFriGVsfiXbLN0/edit?tab=t.keiguguokavo",
+        groups: [
+          {
+            cards: [
+              {
+                step: "STEP 1",
+                title: "メッセージを作らせる",
+                body: `デスクトップにある[LINE] オーダーノート現実創造プログラムのトーク.txtを新しく読み込んで、望月の前回の[[11/19]]投稿以降であった引き寄せ反応や、質問などの個別メッセージを作って。また、前回の返信対象投稿から[[11/19]]の投稿までの間に触れていないものがあり、触れるべきものがあれば触れて。また、全部に反応しなくていい。`
+              },
+              {
+                step: "STEP 2",
+                title: "まとめてコピーできる形で出させる",
+                body: `まとめてコピーできるように出して`
+              },
+              {
+                step: "STEP 3",
+                title: "返信対象のメッセージを書き起こさせる",
+                body: `返信対象のメッセージを書き起こして`
+              },
+              {
+                step: "STEP 4",
+                title: "問題・矛盾チェック",
+                body: `デスクトップにある[LINE] オーダーノート現実創造プログラムのトーク.txtを読み込んで。
+
+以下の投稿だけど、問題ないか、矛盾がないか、間違いがないか、チェックして。
+
+
+`
+              }
+            ]
+          }
+        ]
+      },
+      {
+        label: "ライブ把握",
+        link: "https://docs.google.com/document/d/1PjmeIdJobC4Ek0cuheL8F3E0pzf3w6XTDMRin3TX4Gs/edit?tab=t.0",
+        groups: [
+          {
+            cards: [
+              {
+                title: "ライブ動画を読み込ませてマニュアルを更新",
+                body: `[[11/20]]に新しく[[22回目]]のライブを行ったので、以下のライブの動画を書き読み込んで。
+
+デスクトップにある、オーダーノート_フィードバックメッセージ作成マニュアル.mdもアップデートしておいて。
+
+[[2026年11月20日（22回目）]]
+[[https://youtu.be/BmHHpAnLx08]]`
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+];
+
+/* ================= 以下は描画ロジック（触らなくてOK） ================= */
+const tabsEl = document.getElementById("tabs");
+const panelsEl = document.getElementById("panels");
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---- 変数（開催回＝共通／ワーク案内日＝タブごと） ---- */
+const DEFAULT_KAI = "13";
+const DEFAULT_DATES = { prework: "2026-11-20", day1: "", day2: "" };
+const inKai = document.getElementById("in-kai");
+function load(k) { try { return localStorage.getItem("op-" + k); } catch (e) { return null; } }
+function save(k, v) { try { localStorage.setItem("op-" + k, v); } catch (e) {} }
+inKai.value = load("kai") || DEFAULT_KAI;
+const dates = {};
+sections.forEach(s => { const v = load("date-" + s.id); dates[s.id] = v !== null ? v : (DEFAULT_DATES[s.id] || ""); });
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const w = "日月火水木金土"[new Date(y, m - 1, d).getDay()];
+  return `${m}月${d}日(${w})`;
+}
+function vars(secId) { return { "回": inKai.value || "", "案内日": fmtDate(dates[secId]) || "（案内日未設定）" }; }
+const VAR_RE = /\{\{(回|案内日)\}\}/g;
+/* [[テキスト]] = 表示だけマーカー（コピー時は括弧を外す） */
+const MARK_RE = /\[\[(.+?)\]\]/g;
+const fill = (s, secId) => s.replace(VAR_RE, (_, k) => vars(secId)[k]).replace(MARK_RE, "$1");
+const highlight = (s, secId) => esc(s)
+  .replace(MARK_RE, '<span class="var">$1</span>')
+  .replace(VAR_RE, (_, k) => `<span class="var">${esc(vars(secId)[k])}</span>`)
+  .replace(/\{\{[^}]+\}\}/g, m => `<span class="ph">${m}</span>`);
+
+const pres = [];
+const previews = {};
+function refresh() {
+  Object.entries(previews).forEach(([id, el]) => el.textContent = dates[id] ? "→ " + fmtDate(dates[id]) : "");
+  pres.forEach(st => { if (st.el.isConnected) st.el.innerHTML = highlight(st.body, st.secId); });
+}
+inKai.addEventListener("input", () => { save("kai", inKai.value); refresh(); });
+
+function renderCard(p, secId, key) {
+  const storeKey = "body-" + key;
+  const savedBody = load(storeKey);
+  const st = { body: savedBody !== null ? savedBody : p.body, secId, el: null };
+  pres.push(st);
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="card-head">
+      <div>
+        ${p.step ? `<span class="step">${esc(p.step)}</span>` : ""}${p.sample ? `<span class="step sample">サンプル</span>` : ""}${p.point ? `<span class="step point">ポイント</span>` : ""}<span class="step edited" hidden>編集済み</span>
+        <h3>${esc(p.title)}</h3>
+        ${p.note ? `<p class="note">${esc(p.note)}</p>` : ""}
+      </div>
+      <div class="btns">
+        <button class="edit-btn">編集</button>
+        <button class="copy-btn">コピー</button>
+      </div>
+    </div>
+    <pre></pre>
+    <div class="editor" hidden>
+      <textarea spellcheck="false"></textarea>
+      <div class="editor-help">{{回}} = 開催回が入る ／ [[ ]] で囲むとマーカー（コピー時は消える）</div>
+      <div class="editor-btns">
+        <button class="reset-btn">元の文面に戻す</button>
+        <span style="flex:1"></span>
+        <button class="cancel-btn">キャンセル</button>
+        <button class="save-btn">保存</button>
+      </div>
+    </div>
+    ${p.caution ? `<div class="caution">＊${esc(p.caution)}</div>` : ""}
+  `;
+  const pre = card.querySelector("pre");
+  const editor = card.querySelector(".editor");
+  const ta = card.querySelector("textarea");
+  const editBtn = card.querySelector(".edit-btn");
+  const copyBtn = card.querySelector(".copy-btn");
+  const editedTag = card.querySelector(".edited");
+  st.el = pre;
+
+  const draw = () => {
+    pre.innerHTML = highlight(st.body, secId);
+    editedTag.hidden = st.body === p.body;
+  };
+  const autoSize = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 4, 600) + "px"; };
+  const close = () => { editor.hidden = true; pre.hidden = false; editBtn.hidden = false; copyBtn.hidden = false; };
+
+  editBtn.addEventListener("click", () => {
+    ta.value = st.body;
+    editor.hidden = false; pre.hidden = true; editBtn.hidden = true; copyBtn.hidden = true;
+    autoSize(); ta.focus();
+  });
+  ta.addEventListener("input", autoSize);
+  card.querySelector(".cancel-btn").addEventListener("click", close);
+  card.querySelector(".save-btn").addEventListener("click", () => {
+    st.body = ta.value;
+    if (st.body === p.body) { try { localStorage.removeItem("op-" + storeKey); } catch (e) {} }
+    else save(storeKey, st.body);
+    draw(); close();
+  });
+  const resetBtn = card.querySelector(".reset-btn");
+  let resetArmed = false;
+  resetBtn.addEventListener("click", () => {
+    if (!resetArmed) {
+      resetArmed = true;
+      resetBtn.textContent = "もう一度押すと戻ります";
+      setTimeout(() => { resetArmed = false; resetBtn.textContent = "元の文面に戻す"; }, 3000);
+      return;
+    }
+    resetArmed = false;
+    resetBtn.textContent = "元の文面に戻す";
+    st.body = p.body;
+    try { localStorage.removeItem("op-" + storeKey); } catch (e) {}
+    draw(); close();
+  });
+  copyBtn.addEventListener("click", () => copy(fill(st.body, secId), copyBtn));
+
+  draw();
+  return card;
+}
+
+sections.forEach(sec => {
+  const tab = document.createElement("button");
+  tab.textContent = sec.label;
+  tab.setAttribute("role", "tab");
+  tab.dataset.target = sec.id;
+  tabsEl.appendChild(tab);
+
+  const panel = document.createElement("section");
+  panel.className = "panel";
+  panel.id = sec.id;
+  panel.innerHTML = `
+    <div class="panel-head"><h2>${esc(sec.label)}</h2><p>${esc(sec.desc || "")}</p></div>
+    ${sec.noDate ? "" : `<div class="settings" style="margin:0 0 20px">
+      <label>${esc(sec.label)}の案内日
+        <input type="date" value="${esc(dates[sec.id])}">
+      </label>
+      <span class="preview"></span>
+    </div>`}`;
+  const dIn = panel.querySelector('input[type="date"]');
+  if (dIn) {
+    previews[sec.id] = panel.querySelector(".preview");
+    dIn.addEventListener("input", () => { dates[sec.id] = dIn.value; save("date-" + sec.id, dIn.value); refresh(); });
+  }
+
+  let seg = null;
+  if (sec.modes.length > 1) {
+    seg = document.createElement("div");
+    seg.className = "seg";
+    panel.appendChild(seg);
+  }
+
+  function selectMode(j) {
+    if (seg) seg.querySelectorAll("button").forEach((x, k) => x.classList.toggle("on", k === j));
+    panel.querySelectorAll(".mode").forEach((m, k) => m.hidden = k !== j);
+  }
+
+  sec.modes.forEach((mode, j) => {
+    const modeEl = document.createElement("div");
+    modeEl.className = "mode";
+    modeEl.hidden = j !== 0;
+
+    if (mode.link) {
+      modeEl.insertAdjacentHTML("beforeend", `<a class="doc-link" href="${esc(mode.link)}" target="_blank" rel="noopener">📄 Googleドキュメントを開く<span>${esc(mode.link)}</span></a>`);
+    }
+
+    if (mode.overview) {
+      const flow = document.createElement("div");
+      flow.className = "flow";
+      let n = 0;
+      mode.overview.forEach(item => {
+        if (item.milestone) {
+          flow.insertAdjacentHTML("beforeend", `<div class="flow-arrow">↓</div><div class="flow-milestone">${esc(item.milestone)}</div>${item.note ? `<div class="flow-milestone-note">${esc(item.note)}</div>` : ""}`);
+        } else if (item.loop) {
+          flow.insertAdjacentHTML("beforeend", `<div class="flow-loop">${esc(item.loop)}</div>`);
+        } else {
+          const k = sec.modes.findIndex(m => m.label === item.mode);
+          const m = sec.modes[k];
+          const titles = (m.groups || []).flatMap(g => g.cards).filter(c => !c.sample).map(c => c.title);
+          if (n > 0) flow.insertAdjacentHTML("beforeend", '<div class="flow-arrow">↓</div>');
+          const box = document.createElement("button");
+          box.className = "flow-box";
+          box.innerHTML = `
+            <span class="flow-num">${++n}</span>
+            <span class="flow-body">
+              <strong>${esc(m.label)}${item.tag ? `<span class="flow-tag">${esc(item.tag)}</span>` : ""}</strong>
+              ${m.desc ? `<span class="flow-desc">${esc(m.desc)}</span>` : ""}
+              ${item.note ? `<span class="flow-note">${esc(item.note)}</span>` : ""}
+              ${item.time ? `<span class="flow-time">所要時間：${esc(item.time)}</span>` : ""}
+            </span>
+            <span class="flow-go">開く →</span>`;
+          box.addEventListener("click", () => selectMode(k));
+          flow.appendChild(box);
+        }
+      });
+      modeEl.appendChild(flow);
+    }
+
+    (mode.groups || []).forEach(g => {
+      const groupEl = document.createElement("div");
+      groupEl.className = "group";
+      if (g.heading) groupEl.innerHTML = `<div class="group-head"><h4>${esc(g.heading)}</h4>${g.sub ? `<span>${esc(g.sub)}</span>` : ""}</div>`;
+      if (g.cards.length) g.cards.forEach(c => {
+        if (c.divider) groupEl.insertAdjacentHTML("beforeend", `<div class="divider"><span>✓ ${esc(c.divider)}</span></div>`);
+        else groupEl.appendChild(renderCard(c, sec.id, `${sec.id}|${mode.label}|${c.title}`));
+      });
+      else groupEl.insertAdjacentHTML("beforeend", '<div class="empty">まだありません</div>');
+      modeEl.appendChild(groupEl);
+    });
+    panel.appendChild(modeEl);
+
+    if (seg) {
+      const b = document.createElement("button");
+      b.textContent = mode.label;
+      if (j === 0) b.classList.add("on");
+      b.addEventListener("click", () => selectMode(j));
+      seg.appendChild(b);
+    }
+  });
+
+  panelsEl.appendChild(panel);
+});
+
+function activate(id) {
+  tabsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.target === id));
+  panelsEl.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === id));
+  try { localStorage.setItem("op-tab", id); } catch (e) {}
+}
+tabsEl.addEventListener("click", e => { if (e.target.dataset.target) activate(e.target.dataset.target); });
+
+let saved = null;
+try { saved = localStorage.getItem("op-tab"); } catch (e) {}
+activate(sections.some(s => s.id === saved) ? saved : sections[0].id);
+refresh();
+
+async function copy(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+  btn.textContent = "コピー済み ✓";
+  btn.classList.add("done");
+  setTimeout(() => { btn.textContent = "コピー"; btn.classList.remove("done"); }, 1500);
+}
+</script>
+</body>
+</html>
