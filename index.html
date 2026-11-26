@@ -1040,6 +1040,7 @@ Day2が終了したのが、同日の22時なので、それ以降に届いて�
     modes: [
       {
         label: "有料投稿",
+        dateField: { key: "前回投稿日", label: "望月の前回投稿日", def: "2026-11-19" },
         link: "https://docs.google.com/document/d/1r2PnI0J0xd2mgua0Qqcwcd0VJocJ7eFriGVsfiXbLN0/edit?tab=t.keiguguokavo",
         groups: [
           {
@@ -1047,7 +1048,7 @@ Day2が終了したのが、同日の22時なので、それ以降に届いて�
               {
                 step: "STEP 1",
                 title: "メッセージを作らせる",
-                body: `デスクトップにある[LINE] オーダーノート現実創造プログラムのトーク.txtを新しく読み込んで、望月の前回の[[11/19]]投稿以降であった引き寄せ反応や、質問などの個別メッセージを作って。また、前回の返信対象投稿から[[11/19]]の投稿までの間に触れていないものがあり、触れるべきものがあれば触れて。また、全部に反応しなくていい。`
+                body: `デスクトップにある[LINE] オーダーノート現実創造プログラムのトーク.txtを新しく読み込んで、望月の前回の{{前回投稿日}}投稿以降であった引き寄せ反応や、質問などの個別メッセージを作って。また、前回の返信対象投稿から{{前回投稿日}}の投稿までの間に触れていないものがあり、触れるべきものがあれば触れて。また、全部に反応しなくていい。`
               },
               {
                 step: "STEP 2",
@@ -1075,17 +1076,18 @@ Day2が終了したのが、同日の22時なので、それ以降に届いて�
       },
       {
         label: "ライブ把握",
+        dateField: { key: "ライブ日", label: "ライブ開催日", def: "2026-11-20" },
         link: "https://docs.google.com/document/d/1PjmeIdJobC4Ek0cuheL8F3E0pzf3w6XTDMRin3TX4Gs/edit?tab=t.0",
         groups: [
           {
             cards: [
               {
                 title: "ライブ動画を読み込ませてマニュアルを更新",
-                body: `[[11/20]]に新しく[[22回目]]のライブを行ったので、以下のライブの動画を書き読み込んで。
+                body: `{{ライブ日}}に新しく[[22回目]]のライブを行ったので、以下のライブの動画を書き読み込んで。
 
 デスクトップにある、オーダーノート_フィードバックメッセージ作成マニュアル.mdもアップデートしておいて。
 
-[[2026年11月20日（22回目）]]
+{{ライブ日:年}}（[[22回目]]）
 [[https://youtu.be/BmHHpAnLx08]]`
               }
             ]
@@ -1118,15 +1120,28 @@ function fmtDate(iso) {
   const w = "日月火水木金土"[new Date(y, m - 1, d).getDay()];
   return `${m}月${d}日(${w})`;
 }
-function vars(secId) { return { "回": inKai.value || "", "案内日": fmtDate(dates[secId]) || "（案内日未設定）" }; }
-const VAR_RE = /\{\{(回|案内日)\}\}/g;
+/* モードごとのカレンダー（{{キー}} → 11/19、{{キー:年}} → 2026年11月19日） */
+const extraDates = {};
+sections.forEach(sec => sec.modes.forEach(m => {
+  if (!m.dateField) return;
+  const v = load("date-x-" + m.dateField.key);
+  extraDates[m.dateField.key] = v !== null ? v : (m.dateField.def || "");
+}));
+const fmtMD = iso => { if (!iso) return ""; const [, m, d] = iso.split("-").map(Number); return `${m}/${d}`; };
+const fmtYMD = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-").map(Number); return `${y}年${m}月${d}日`; };
+function lookup(k, f, secId) {
+  if (k === "回") return inKai.value || "";
+  if (k === "案内日") return fmtDate(dates[secId]) || "（案内日未設定）";
+  if (k in extraDates) return (f === "年" ? fmtYMD : fmtMD)(extraDates[k]) || "（日付未設定）";
+  return null;
+}
+const VAR_RE = /\{\{([^}:]+)(?::([^}]+))?\}\}/g;
 /* [[テキスト]] = 表示だけマーカー（コピー時は括弧を外す） */
 const MARK_RE = /\[\[(.+?)\]\]/g;
-const fill = (s, secId) => s.replace(VAR_RE, (_, k) => vars(secId)[k]).replace(MARK_RE, "$1");
+const fill = (s, secId) => s.replace(VAR_RE, (m, k, f) => { const v = lookup(k, f, secId); return v === null ? m : v; }).replace(MARK_RE, "$1");
 const highlight = (s, secId) => esc(s)
   .replace(MARK_RE, '<span class="var">$1</span>')
-  .replace(VAR_RE, (_, k) => `<span class="var">${esc(vars(secId)[k])}</span>`)
-  .replace(/\{\{[^}]+\}\}/g, m => `<span class="ph">${m}</span>`);
+  .replace(VAR_RE, (m, k, f) => { const v = lookup(k, f, secId); return v === null ? `<span class="ph">${m}</span>` : `<span class="var">${esc(v)}</span>`; });
 
 const pres = [];
 const previews = {};
@@ -1261,6 +1276,20 @@ sections.forEach(sec => {
 
     if (mode.link) {
       modeEl.insertAdjacentHTML("beforeend", `<a class="doc-link" href="${esc(mode.link)}" target="_blank" rel="noopener">📄 Googleドキュメントを開く<span>${esc(mode.link)}</span></a>`);
+    }
+
+    if (mode.dateField) {
+      const df = mode.dateField;
+      const box = document.createElement("div");
+      box.className = "settings";
+      box.style.margin = "0 0 20px";
+      box.innerHTML = `<label>${esc(df.label)}<input type="date" value="${esc(extraDates[df.key])}"></label><span class="preview"></span>`;
+      const inp = box.querySelector("input");
+      const pv = box.querySelector(".preview");
+      const show = () => pv.textContent = extraDates[df.key] ? "→ " + fmtDate(extraDates[df.key]) : "";
+      inp.addEventListener("input", () => { extraDates[df.key] = inp.value; save("date-x-" + df.key, inp.value); show(); refresh(); });
+      show();
+      modeEl.appendChild(box);
     }
 
     if (mode.overview) {
