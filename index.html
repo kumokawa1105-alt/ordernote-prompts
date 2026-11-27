@@ -1359,7 +1359,7 @@ sections.forEach(sec => {
           b.addEventListener("click", () => copy(l.url, b, "URLコピー"));
           return row;
         };
-        draw(load(sortKey) || "desc");
+        draw(load(sortKey) || "asc");
         groupEl.appendChild(list);
         modeEl.appendChild(groupEl);
       });
