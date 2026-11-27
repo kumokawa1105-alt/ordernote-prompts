@@ -82,6 +82,12 @@
     font-size: .9rem;
     cursor: pointer;
   }
+  nav.tabs a.tab-link {
+    flex-shrink: 0; display: inline-flex; align-items: center;
+    border: 1px dashed var(--accent); color: var(--accent); background: var(--surface);
+    padding: 8px 16px; border-radius: 999px; font-size: .9rem; font-weight: 600; text-decoration: none;
+  }
+  nav.tabs a.tab-link:hover { background: var(--accent-soft); }
   nav.tabs button[aria-selected="true"] {
     background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
   }
@@ -1440,6 +1446,9 @@ sections.forEach(sec => {
 
   panelsEl.appendChild(panel);
 });
+
+/* タブの右端に外部リンク */
+tabsEl.insertAdjacentHTML("beforeend", `<a class="tab-link" href="https://kumokawa1105-alt.github.io/ordernote-schedule/" target="_blank" rel="noopener">ローンチ工程 ↗</a>`);
 
 function activate(id) {
   tabsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.target === id));
